@@ -15,42 +15,46 @@
  *   [Player 2's paddle]
  */
 
+//I'm using AccelStepper instead of Stepper.h because stepper.h doesn't support multiple steppers
+//AccelStepper documentation: https://www.airspayce.com/mikem/arduino/AccelStepper/classAccelStepper.html#a748665c3962e66fbc0e9373eb14c69c1
 #include <AccelStepper.h>
 #include <math.h>
 
 /*Given an initial position and a final position, drive two gantry stepper motors,
  * stepperX and stepperY to reach final position.
- * Returns true when ball has reached final position
-  */
+ * Returns true when ball has reached final position.
+ * Note: Positive step values means stepper rotates clockwise (vice versa for negative step values)
+ */
 bool moveBall(unsigned int size[2], unsigned int xStart, unsigned int yStart, unsigned int xEnd, unsigned int yEnd) {
 
   //initialize steppers with pins
   AccelStepper stepperX(AccelStepper::FULL4WIRE, 2, 3, 4, 5); //TODO: change based on which pins we're using
   AccelStepper stepperY(AccelStepper::FULL4WIRE, 6, 7, 8, 9); //wire order: red, green, yellow, blue
-
-  //TODO: calculate steps for X and Y axes given playing field size
-  //for now, assume matrix is 60x85
-
+  
+  //calculate steps for X and Y axes given playing field size
+  //assume playing field is 60x85 cm
   //TODO: change gearBoxRatio and stepsPerRev to reflect the motor / gearbox we're using
+  float matrixPosToCmX = 60/size[0];
+  float matrixPosToCmY = 85/size[1];
   int ballSpeed = 800; //in cm/s
   int stepsPerRev = 200; //for Mercury SM-42BYG011-25
   int gearBoxRatio = 1;
   float stepsPerCm = stepsPerRev/(gearBoxRatio*11); //my pulley wheel's circumference is 11cm
-
-  //speed in steps/sec. use 330 (aka 100rpm) for now until we test with motor driver
-  int totalSpeed = 330; //ballSpeed*stepsPerCm;
   
-  int cmX = xEnd - xStart;
-  int cmY = yEnd - yStart;
+  float cmX = (xEnd - xStart)*matrixPosToCmX;
+  float cmY = (yEnd - yStart)*matrixPosToCmY;
   float stepsX = cmX*stepsPerCm;
   float stepsY = cmY*stepsPerCm;
-  int xSpeed = 0;
-  int ySpeed = 0;
+
+  //speed in steps/sec. use 330 (the fastest I can make it without motor stopping) for now until we test with motor driver
+  int totalSpeed = 330; //ballSpeed*stepsPerCm;
 
   //compute components of xSpeed and ySpeed
+  int xSpeed = 0;
+  int ySpeed = 0;
+  
   if(cmX == 0)
     ySpeed = totalSpeed;
-
   if(cmY == 0)
     xSpeed = totalSpeed;
 
@@ -59,7 +63,6 @@ bool moveBall(unsigned int size[2], unsigned int xStart, unsigned int yStart, un
     xSpeed = abs(totalSpeed*cos(angle));
     ySpeed = abs(totalSpeed*sin(angle));
   }
-
   /*
   Serial.print("xSpeed: ");
   Serial.print(xSpeed);
@@ -83,6 +86,7 @@ bool moveBall(unsigned int size[2], unsigned int xStart, unsigned int yStart, un
   stepperX.move(stepsX);
   stepperY.move(stepsY);
 
+  //keep calling run() until motors have finished moving
   while((stepperX.distanceToGo() != 0) || (stepperY.distanceToGo() != 0)) {
     //Serial.print("X steps remaining: ");
     //Serial.print(stepperX.distanceToGo());
